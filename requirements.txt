@@ -1,0 +1,10 @@
+streamlit
+SpeechRecognition
+pyaudio
+python-dotenv
+requests
+together
+Pillow
+arabic_reshaper
+python-bidi
+googletrans
