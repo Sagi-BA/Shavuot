@@ -399,8 +399,13 @@ def main():
                     except Exception as e:
                         st.error(f"שגיאה בשילוב התמונה האישית: {str(e)}")
                 if img_with_text:
+                    # Check if use_container_width is supported
+                    try:
+                        st.image(img_with_text, caption="הסל שלך לביכורים", use_container_width=True)
+                    except TypeError:
+                        st.image(img_with_text, caption="הסל שלך לביכורים", width=600)
                     # Display the image
-                    st.image(img_with_text, caption="הסל שלך לביכורים", use_container_width=True)
+                    st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
 
                 # כפתור שיתוף והורדה דרך imgur
                 imgur_url = None
