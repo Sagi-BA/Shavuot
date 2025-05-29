@@ -405,7 +405,7 @@ def main():
                     except TypeError:
                         st.image(img_with_text, caption="הסל שלך לביכורים", width=600)
                     # Display the image
-                    st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
+                    # st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
 
                 # כפתור שיתוף והורדה דרך imgur
                 imgur_url = None
