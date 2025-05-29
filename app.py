@@ -59,9 +59,12 @@ def compose_final_image(image_url, hebrew_text):
 
         # Set up fonts
         try:
-            font_bless = ImageFont.truetype("arial.ttf", 40)
+            font_bless = ImageFont.truetype("NotoSansHebrew-Regular.ttf", 40)
         except:
-            font_bless = ImageFont.load_default()
+            try:
+                font_bless = ImageFont.truetype("arial.ttf", 40)
+            except:
+                font_bless = ImageFont.load_default()
         try:
             font_tips = ImageFont.truetype("arial.ttf", 10)
         except:
@@ -397,7 +400,7 @@ def main():
                         st.error(f"שגיאה בשילוב התמונה האישית: {str(e)}")
                 if img_with_text:
                     # Display the image
-                    st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
+                    st.image(img_with_text, caption="הסל שלך לביכורים", use_container_width=True)
 
                 # כפתור שיתוף והורדה דרך imgur
                 imgur_url = None
