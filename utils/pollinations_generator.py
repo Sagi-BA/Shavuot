@@ -12,7 +12,7 @@ from deep_translator import GoogleTranslator
 # Add the parent directory of 'text_to_image' (which is 'utils') to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from imgur_uploader import ImgurUploader
+from utils.imgur_uploader import ImgurUploader
 
 # https://pollinations.ai/
 ## Parameters

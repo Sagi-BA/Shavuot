@@ -4,8 +4,9 @@ import streamlit as st
 import speech_recognition as sr
 import os
 from dotenv import load_dotenv
-from pollinations_generator import PollinationsGenerator
-from together_ai_generator import TogetherAIGenerator
+from utils.pollinations_generator import PollinationsGenerator
+from utils.together_ai_generator import TogetherAIGenerator
+from utils.telegram_sender import TelegramSender
 import base64
 from PIL import Image, ImageDraw, ImageFont
 import io
@@ -13,7 +14,7 @@ import requests
 import arabic_reshaper
 from bidi.algorithm import get_display
 import textwrap
-from imgur_uploader import ImgurUploader
+from utils.imgur_uploader import ImgurUploader
 import uuid
 
 # Load environment variables
@@ -22,6 +23,7 @@ load_dotenv()
 # Initialize generators
 pollinations = PollinationsGenerator()
 together_ai = TogetherAIGenerator()
+telegram = TelegramSender()
 
 # דוגמאות מוכנות
 EXAMPLES = [
@@ -404,9 +406,12 @@ def main():
                         st.image(img_with_text, caption="הסל שלך לביכורים", use_container_width=True)
                     except TypeError:
                         st.image(img_with_text, caption="הסל שלך לביכורים", width=600)
-                    # Display the image
-                    # st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
 
+                    # Send to Telegram
+                    try:
+                        telegram.send_photo_bytes(img_with_text, caption=f"סל ביכורים חדש: {user_items}\n{hebrew_text}")
+                    except Exception as e:
+                        print(f"Failed to send to Telegram: {str(e)}")
                 # כפתור שיתוף והורדה דרך imgur
                 imgur_url = None
                 try:
