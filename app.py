@@ -16,23 +16,23 @@ from bidi.algorithm import get_display
 import textwrap
 from utils.imgur_uploader import ImgurUploader
 import uuid
+import json
 
 # Load environment variables
 load_dotenv()
+
+# Load examples from JSON
+with open("examples.json", encoding="utf-8") as f:
+    EXAMPLES = json.load(f)
+
+# Load item ideas from JSON
+with open("item_ideas.json", encoding="utf-8") as f:
+    ITEM_IDEAS = json.load(f)
 
 # Initialize generators
 pollinations = PollinationsGenerator()
 together_ai = TogetherAIGenerator()
 telegram = TelegramSender()
-
-# דוגמאות מוכנות
-EXAMPLES = [
-    "מנגו, גבינת עיזים, דבש, אהבה",
-    "ענבים, תאנים, רימונים, שמחה",
-    "עוגת גבינה, פרחים, חיטה, שוקולד",
-    "תמרים, יין, גבינה צפתית, חיוך",
-    "אבטיח, לחם, שמן זית, ברכה"
-]
 
 def get_user_id():
     if 'user_id' not in st.session_state:
@@ -299,56 +299,170 @@ def main():
           box-shadow: 0 -2px 12px #0001;
           padding: 8px 0 2px 0;
         }
+        .big-create-btn {
+            width: 100% !important;
+            display: block;
+            background: linear-gradient(90deg, #ff5e62 0%, #ff9966 100%);
+            color: white !important;
+            font-size: 1.5em !important;
+            font-weight: bold !important;
+            border: none;
+            border-radius: 16px;
+            padding: 22px 0 22px 0;
+            margin: 18px 0 0 0;
+            box-shadow: 0 4px 24px #ff5e6240;
+            transition: 0.2s;
+            cursor: pointer;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .big-create-btn:hover {
+            background: linear-gradient(90deg, #ff9966 0%, #ff5e62 100%);
+            box-shadow: 0 8px 32px #ff5e6280;
+            transform: scale(1.03);
+        }
+        .full-width-basket-btn {
+            width: 100%;
+            display: block;
+            background: linear-gradient(90deg, #ff512f 0%, #dd2476 100%);
+            color: #fff !important;
+            font-size: 2em;
+            font-weight: bold;
+            border: none;
+            border-radius: 18px;
+            padding: 28px 0 28px 0;
+            margin: 22px 0 0 0;
+            box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset;
+            transition: 0.18s;
+            cursor: pointer;
+            letter-spacing: 1.5px;
+            text-align: center;
+            outline: none;
+            animation: pulseBtn 2s infinite;
+        }
+        .full-width-basket-btn:hover {
+            background: linear-gradient(90deg, #dd2476 0%, #ff512f 100%);
+            box-shadow: 0 12px 40px #ff512f99, 0 1.5px 0 #fff inset;
+            transform: scale(1.025);
+        }
+        @keyframes pulseBtn {
+            0% { box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset; }
+            50% { box-shadow: 0 12px 48px #ff512faa, 0 1.5px 0 #fff inset; }
+            100% { box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset; }
+        }
+        .hidden-st-btn { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 style='text-align:center; color:#d72660; font-size:2.5em;'>מה תביא לביכורים? <span style='font-size:1.2em;'>🎉</span></h1>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; font-size:1.2em;'>ספרו לנו מה תרצו להביא לסל הביכורים שלכם</div>", unsafe_allow_html=True)
 
+    # עיצוב בולט לתיבת הטקסט
+    st.markdown("""
+    <style>
+    .stTextInput > div > div > input {
+        border: 3px solid #ff5e62 !important;
+        background: #fff !important;
+        font-size: 1.5em !important;
+        font-weight: bold;
+        color: #222 !important;
+        border-radius: 0 !important;
+        padding: 18px 18px !important;
+        box-shadow: 0 4px 24px #ff5e6240;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     # שלב 1: העלאת תמונה אישית
     user_image = st.file_uploader("העלו תמונה אישית (רשות)", type=["jpg", "jpeg", "png"], key="user_image")
     if user_image is not None:
         st.image(user_image, caption="התמונה האישית שלך", width=250)
 
-    # כפתורי הקלטה בלבד (ללא הקלדה)
-    col1, col2 = st.columns([1,1])
-    with col1:
-        if st.button("🎤 מיקרופון", key="btn_mic"):
-            st.session_state["input_type"] = "mic"
-    with col2:
-        if st.button("🔄 התחל מההתחלה", key="btn_reset"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
-
-    st.markdown("<div style='text-align:center; color:#888; font-size:1em;'>לחצו על המיקרופון לדיבור | לחצו על המעטפה להקלדה</div>", unsafe_allow_html=True)
-    # קלט מהמשתמש
-    user_items = ""
-    input_type = st.session_state.get("input_type", None)
-    mic_transcript = None
-    if input_type == "mic":
-        mic_transcript = transcribe_audio()
-        if mic_transcript:
-            st.info("הטקסט שזוהה מהמיקרופון. אפשר לערוך/להשלים/להפריד בפסיקים:")
-            user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", value=mic_transcript, key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
-        else:
-            user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
-    else:
-        user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
-
-    # דוגמאות לבחירה
+    # דוגמאות לבחירה - כפתורים מעל תיבת הטקסט
     st.markdown("<div style='text-align:center; margin-top:18px;'>", unsafe_allow_html=True)
     cols = st.columns(len(EXAMPLES))
-    example_clicked = None
     for i, example in enumerate(EXAMPLES):
         if cols[i].button(example, key=f"ex_{i}"):
-            example_clicked = example
+            st.session_state["items_input"] = example
     st.markdown("</div>", unsafe_allow_html=True)
-    if example_clicked:
-        user_items = example_clicked
 
-    if user_items:
-        st.markdown(f"<div class='wow-box'><b>🎯 מה שבחרת/הקלטת:</b> {user_items}</div>", unsafe_allow_html=True)
+    # --- סל נבחרים (session_state) ---
+    if 'basket_items' not in st.session_state:
+        st.session_state['basket_items'] = []
+
+    # --- Grid של אייקונים לבחירה ---
+    st.markdown("""
+    <div style='text-align:center; margin-bottom:10px; margin-top:18px;'>
+        <span style='font-size:1.3em; color:#228B22; font-weight:bold;'>או בחרו מתוך הרעיונות <span style='font-size:1.1em;'>💡</span>:</span>
+    </div>
+    """, unsafe_allow_html=True)
+    icon_cols = st.columns(4)
+    for i, idea in enumerate(ITEM_IDEAS):
+        col = icon_cols[i % 4]
+        is_selected = idea['name'] in st.session_state['basket_items']
+        btn_label = f"{idea['emoji']}  {idea['name']}"
+        btn_key = f"icon_{idea['name']}"
+        btn_style = (
+            "background: #fff; border: 2.5px solid #a7f3d0; color: #228B22; font-size:1.3em; border-radius:18px; padding:18px 0; margin:8px 0; width:100%; box-shadow:0 2px 12px #a7f3d055; font-weight:bold;"
+            if not is_selected else
+            "background: linear-gradient(90deg,#ffecd2 0%,#fcb69f 100%); border: 2.5px solid #ff5e62; color:#d72660; font-size:1.3em; border-radius:18px; padding:18px 0; margin:8px 0; width:100%; box-shadow:0 4px 18px #ff5e6240; font-weight:bold;"
+        )
+        if col.button(btn_label, key=btn_key, help="הוסף/הסר מהסל", use_container_width=True):
+            if is_selected:
+                st.session_state['basket_items'].remove(idea['name'])
+            else:
+                st.session_state['basket_items'].append(idea['name'])
+            # עדכן את תיבת הטקסט
+            st.session_state['items_input'] = ', '.join(st.session_state['basket_items'])
+            # st.rerun()
+
+    # --- סוף אייקונים ---
+
+    # קלט מהמשתמש
+    user_items = st.text_area("מה תרצו שיהיה בסל? (הפרד בפסיקים)", key="items_input", height=70, help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
+    # עדכון סל מתוך תיבת הטקסט (אם המשתמש ערך ידנית)
+    st.session_state['basket_items'] = [item.strip() for item in user_items.split(',') if item.strip()]
+
+    # כפתור יצירת סל - עיצוב בולט ורחב (Streamlit button בלבד)
+    st.markdown("""
+    <style>
+    div.stButton > button#basket-create-btn {
+        width: 100% !important;
+        min-width: 300px;
+        max-width: 900px;
+        display: block;
+        background: linear-gradient(90deg, #ff512f 0%, #dd2476 100%);
+        color: #fff !important;
+        font-size: 2em;
+        font-weight: bold;
+        border: none;
+        border-radius: 24px;
+        padding: 28px 0 28px 0;
+        margin: 22px 0 0 0;
+        box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset;
+        transition: 0.18s;
+        cursor: pointer;
+        letter-spacing: 1.5px;
+        text-align: center;
+        outline: none;
+        animation: pulseBtn 2s infinite;
+    }
+    div.stButton > button#basket-create-btn:hover {
+        background: linear-gradient(90deg, #dd2476 0%, #ff512f 100%);
+        box-shadow: 0 12px 40px #ff512f99, 0 1.5px 0 #fff inset;
+        transform: scale(1.025);
+    }
+    @keyframes pulseBtn {
+        0% { box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset; }
+        50% { box-shadow: 0 12px 48px #ff512faa, 0 1.5px 0 #fff inset; }
+        100% { box-shadow: 0 6px 32px #dd247680, 0 1.5px 0 #fff inset; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    create_basket = st.button("🎨 צרו סל ביכורים", key="basket-create-btn")
+
+    if create_basket and user_items:
+        st.markdown(f"<div class='wow-box'><b>🎯 בחרתם:</b> {user_items}</div>", unsafe_allow_html=True)
 
         # 1. טקסט שירי
         with st.spinner("📝 יוצר טקסט שירי לסל שלך..."):
@@ -401,7 +515,6 @@ def main():
                     except Exception as e:
                         st.error(f"שגיאה בשילוב התמונה האישית: {str(e)}")
                 if img_with_text:
-                    # Check if use_container_width is supported
                     try:
                         st.image(img_with_text, caption="הסל שלך לביכורים", use_container_width=True)
                     except TypeError:
@@ -412,6 +525,7 @@ def main():
                         telegram.send_photo_bytes(img_with_text, caption=f"סל ביכורים חדש: {user_items}\n{hebrew_text}")
                     except Exception as e:
                         print(f"Failed to send to Telegram: {str(e)}")
+
                 # כפתור שיתוף והורדה דרך imgur
                 imgur_url = None
                 try:
@@ -424,14 +538,11 @@ def main():
                 # תקן את הלינק ל-imgur.com
                 if imgur_url and imgur_url.startswith("https://i.imgur.com/"):
                     img_id = imgur_url.replace("https://i.imgur.com/", "").split(".")[0]
-                    # Remove any extra text after the ID (e.g., 'הסל')
                     img_id = ''.join([c for c in img_id if c.isalnum()])
                     imgur_url = f"https://imgur.com/{img_id}"
 
                 if imgur_url:
-                    # כפתור הורדה
                     st.markdown(f'<a href="{imgur_url}" download class="download-btn">⬇️ הורדת התמונה</a>', unsafe_allow_html=True)
-                    # כפתור שיתוף
                     share_text = f"{imgur_url}"
                     whatsapp_url = f"https://wa.me/?text={share_text}"
                     st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="font-size:1.3em; color:#25d366;">📱 שיתוף בוואטסאפ</a>', unsafe_allow_html=True)
