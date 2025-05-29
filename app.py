@@ -178,15 +178,30 @@ def generate_hebrew_text(prompt):
     """Generate Hebrew text using Together AI"""
     return together_ai.generate_hebrew_text(prompt)
 
-def main():
+
+def hide_streamlit_header_footer():
+    hide_st_style = """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        #root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 0rem;}
+    </style>
+    """
+    st.markdown(hide_st_style, unsafe_allow_html=True)
+
+def main():    
     st.set_page_config(
         page_title="מה תביאו לביכורים? 🎉",
         page_icon="🎉",
         layout="centered"
     )
 
+    hide_streamlit_header_footer()     
+
     # ספירת משתמשים ייחודיים
-    user_id = get_user_id()
+    user_id = get_user_id() 
+
     total_users = register_user(user_id)
     st.markdown(f'<div style="text-align:center;font-size:1.3em;margin:10px 0 0 0;"><b>סה"כ משתמשים: {total_users}</b></div>', unsafe_allow_html=True)
 
@@ -312,9 +327,9 @@ def main():
             st.info("הטקסט שזוהה מהמיקרופון. אפשר לערוך/להשלים/להפריד בפסיקים:")
             user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", value=mic_transcript, key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
         else:
-            user_items = st.text_input("מה תרצה שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
+            user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
     else:
-        user_items = st.text_input("מה תרצה שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
+        user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
 
     # דוגמאות לבחירה
     st.markdown("<div style='text-align:center; margin-top:18px;'>", unsafe_allow_html=True)
@@ -355,30 +370,24 @@ def main():
                         base_img = Image.open(io.BytesIO(img_with_text)).convert("RGBA")
                         # Open user image
                         user_img = Image.open(user_image).convert("RGBA")
-                        # Set polaroid size
-                        polaroid_w = base_img.width // 5
-                        polaroid_h = int(polaroid_w * 1.25)
-                        img_w = polaroid_w - 24
-                        img_h = polaroid_h - 48  # leave more space at bottom for polaroid effect
+                        # Remove polaroid frame: just use the user image with rounded corners and shadow
+                        img_w = base_img.width // 5 - 24
+                        img_h = int(img_w * 0.8)
                         user_img = user_img.resize((img_w, img_h))
-                        # Create polaroid frame (no border, just rounded corners and shadow)
-                        polaroid = Image.new("RGBA", (polaroid_w, polaroid_h), (0,0,0,0))
-                        # Paste user image onto polaroid
-                        polaroid.paste(user_img, (12,12))
-                        # Add rounded corners to polaroid
-                        mask = Image.new("L", (polaroid_w, polaroid_h), 0)
+                        # Add rounded corners to user image
+                        mask = Image.new("L", (img_w, img_h), 0)
                         draw_mask = ImageDraw.Draw(mask)
-                        draw_mask.rounded_rectangle([0,0,polaroid_w,polaroid_h], radius=28, fill=255)
-                        polaroid.putalpha(mask)
+                        draw_mask.rounded_rectangle([0,0,img_w,img_h], radius=28, fill=255)
+                        user_img.putalpha(mask)
                         # Add shadow
-                        shadow = Image.new("RGBA", (polaroid_w+12, polaroid_h+12), (0,0,0,0))
+                        shadow = Image.new("RGBA", (img_w+12, img_h+12), (0,0,0,0))
                         shadow_draw = ImageDraw.Draw(shadow)
-                        shadow_draw.rounded_rectangle([6,6,polaroid_w+6,polaroid_h+6], radius=32, fill=(0,0,0,60))
+                        shadow_draw.rounded_rectangle([6,6,img_w+6,img_h+6], radius=32, fill=(0,0,0,60))
                         # New position: bottom right
-                        frame_x = base_img.width-polaroid_w-40
-                        frame_y = base_img.height-polaroid_h-40
+                        frame_x = base_img.width-img_w-40
+                        frame_y = base_img.height-img_h-40
                         base_img.paste(shadow, (frame_x+6, frame_y+6), shadow)
-                        base_img.paste(polaroid, (frame_x, frame_y), polaroid)
+                        base_img.paste(user_img, (frame_x, frame_y), user_img)
                         # Convert back to bytes
                         img_byte_arr = io.BytesIO()
                         base_img = base_img.convert("RGB")
