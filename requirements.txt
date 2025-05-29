@@ -7,5 +7,5 @@ Pillow
 arabic_reshaper
 python-bidi
 googletrans
-PIL
 numpy
+deep-translator
