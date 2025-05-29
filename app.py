@@ -11,6 +11,8 @@ import requests
 import arabic_reshaper
 from bidi.algorithm import get_display
 import textwrap
+from imgur_uploader import ImgurUploader
+import uuid
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +29,23 @@ EXAMPLES = [
     "תמרים, יין, גבינה צפתית, חיוך",
     "אבטיח, לחם, שמן זית, ברכה"
 ]
+
+def get_user_id():
+    if 'user_id' not in st.session_state:
+        user_id = str(uuid.uuid4())
+        st.session_state['user_id'] = user_id
+    return st.session_state['user_id']
+
+def register_user(user_id, users_file='users.txt'):
+    if not os.path.exists(users_file):
+        with open(users_file, 'w') as f:
+            f.write('')
+    with open(users_file, 'r+') as f:
+        users = set(line.strip() for line in f)
+        if user_id not in users:
+            f.write(user_id + '\n')
+            users.add(user_id)
+    return len(users)
 
 def compose_final_image(image_url, hebrew_text):
     """Compose a new image: top - blessing (wrapped), middle - basket, bottom center - tips text"""
@@ -159,10 +178,15 @@ def generate_hebrew_text(prompt):
 
 def main():
     st.set_page_config(
-        page_title="מה תביא לביכורים? 🎉",
+        page_title="מה תביאו לביכורים? 🎉",
         page_icon="🎉",
         layout="centered"
     )
+
+    # ספירת משתמשים ייחודיים
+    user_id = get_user_id()
+    total_users = register_user(user_id)
+    st.markdown(f'<div style="text-align:center;font-size:1.3em;margin:10px 0 0 0;"><b>סה"כ משתמשים: {total_users}</b></div>', unsafe_allow_html=True)
 
     # עיצוב וואו + RTL
     st.markdown("""
@@ -242,28 +266,40 @@ def main():
             border-color: #d72660;
             box-shadow: 0 0 8px #d7266060;
         }
+        .sticky-footer {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          width: 100vw;
+          background: #fff;
+          z-index: 999;
+          border-top: 2px solid #eee;
+          box-shadow: 0 -2px 12px #0001;
+          padding: 8px 0 2px 0;
+        }
         </style>
     """, unsafe_allow_html=True)
 
     st.markdown("<h1 style='text-align:center; color:#d72660; font-size:2.5em;'>מה תביא לביכורים? <span style='font-size:1.2em;'>🎉</span></h1>", unsafe_allow_html=True)
     st.markdown("<div style='text-align:center; font-size:1.2em;'>ספרו לנו מה תרצו להביא לסל הביכורים שלכם</div>", unsafe_allow_html=True)
 
-    # כפתורי הקלטה והקלדה (Streamlit buttons instead of HTML)
-    col1, col2, col3 = st.columns([1,1,1])
+    # שלב 1: העלאת תמונה אישית
+    user_image = st.file_uploader("העלו תמונה אישית (רשות)", type=["jpg", "jpeg", "png"], key="user_image")
+    if user_image is not None:
+        st.image(user_image, caption="התמונה האישית שלך", width=250)
+
+    # כפתורי הקלטה בלבד (ללא הקלדה)
+    col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("✉️ הקלדה", key="btn_text"):
-            st.session_state["input_type"] = "text"
-    with col2:
         if st.button("🎤 מיקרופון", key="btn_mic"):
             st.session_state["input_type"] = "mic"
-    with col3:
+    with col2:
         if st.button("🔄 התחל מההתחלה", key="btn_reset"):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
 
     st.markdown("<div style='text-align:center; color:#888; font-size:1em;'>לחצו על המיקרופון לדיבור | לחצו על המעטפה להקלדה</div>", unsafe_allow_html=True)
-
     # קלט מהמשתמש
     user_items = ""
     input_type = st.session_state.get("input_type", None)
@@ -272,7 +308,7 @@ def main():
         mic_transcript = transcribe_audio()
         if mic_transcript:
             st.info("הטקסט שזוהה מהמיקרופון. אפשר לערוך/להשלים/להפריד בפסיקים:")
-            user_items = st.text_input("מה תרצה שיהיה בסל? (הפרד בפסיקים)", value=mic_transcript, key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
+            user_items = st.text_input("מה תרצו שיהיה בסל? (הפרד בפסיקים)", value=mic_transcript, key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
         else:
             user_items = st.text_input("מה תרצה שיהיה בסל? (הפרד בפסיקים)", key="items_input", help="לדוג' מגבת צבעונית, חטיפי שוקולד, ספר, ...")
     else:
@@ -310,17 +346,88 @@ def main():
             if image_url:
                 # Add text to image
                 img_with_text = compose_final_image(image_url, hebrew_text)
+                # שילוב תמונה אישית אם הועלתה
+                if img_with_text and user_image is not None:
+                    try:
+                        # Open base image
+                        base_img = Image.open(io.BytesIO(img_with_text)).convert("RGBA")
+                        # Open user image
+                        user_img = Image.open(user_image).convert("RGBA")
+                        # Set polaroid size
+                        polaroid_w = base_img.width // 5
+                        polaroid_h = int(polaroid_w * 1.25)
+                        img_w = polaroid_w - 24
+                        img_h = polaroid_h - 48  # leave more space at bottom for polaroid effect
+                        user_img = user_img.resize((img_w, img_h))
+                        # Create polaroid frame (no border, just rounded corners and shadow)
+                        polaroid = Image.new("RGBA", (polaroid_w, polaroid_h), (0,0,0,0))
+                        # Paste user image onto polaroid
+                        polaroid.paste(user_img, (12,12))
+                        # Add rounded corners to polaroid
+                        mask = Image.new("L", (polaroid_w, polaroid_h), 0)
+                        draw_mask = ImageDraw.Draw(mask)
+                        draw_mask.rounded_rectangle([0,0,polaroid_w,polaroid_h], radius=28, fill=255)
+                        polaroid.putalpha(mask)
+                        # Add shadow
+                        shadow = Image.new("RGBA", (polaroid_w+12, polaroid_h+12), (0,0,0,0))
+                        shadow_draw = ImageDraw.Draw(shadow)
+                        shadow_draw.rounded_rectangle([6,6,polaroid_w+6,polaroid_h+6], radius=32, fill=(0,0,0,60))
+                        # New position: bottom right
+                        frame_x = base_img.width-polaroid_w-40
+                        frame_y = base_img.height-polaroid_h-40
+                        base_img.paste(shadow, (frame_x+6, frame_y+6), shadow)
+                        base_img.paste(polaroid, (frame_x, frame_y), polaroid)
+                        # Convert back to bytes
+                        img_byte_arr = io.BytesIO()
+                        base_img = base_img.convert("RGB")
+                        base_img.save(img_byte_arr, format='PNG')
+                        img_with_text = img_byte_arr.getvalue()
+                    except Exception as e:
+                        st.error(f"שגיאה בשילוב התמונה האישית: {str(e)}")
                 if img_with_text:
                     # Display the image
                     st.image(img_with_text, caption="הסל שלך לביכורים", use_column_width=True)
-                    
-                    # Add download button
-                    st.markdown(get_image_download_link(img_with_text), unsafe_allow_html=True)
 
-                # כפתור שיתוף
-                share_text = f"הנה הסל שלי לביכורים! {hebrew_text}"
-                whatsapp_url = f"https://wa.me/?text={share_text}"
-                st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="font-size:1.3em; color:#25d366;">📱 שתף בוואטסאפ</a>', unsafe_allow_html=True)
+                # כפתור שיתוף והורדה דרך imgur
+                imgur_url = None
+                try:
+                    uploader = ImgurUploader()
+                    img_b64 = base64.b64encode(img_with_text).decode()
+                    imgur_url = uploader.upload_media_to_imgur(img_b64, "image", "Bikkurim Basket", "AI Generated Bikkurim Basket")
+                except Exception as e:
+                    st.error(f"שגיאה בהעלאת התמונה ל-Imgur: {str(e)}")
+
+                # תקן את הלינק ל-imgur.com
+                if imgur_url and imgur_url.startswith("https://i.imgur.com/"):
+                    img_id = imgur_url.replace("https://i.imgur.com/", "").split(".")[0]
+                    # Remove any extra text after the ID (e.g., 'הסל')
+                    img_id = ''.join([c for c in img_id if c.isalnum()])
+                    imgur_url = f"https://imgur.com/{img_id}"
+
+                if imgur_url:
+                    # כפתור הורדה
+                    st.markdown(f'<a href="{imgur_url}" download class="download-btn">⬇️ הורדת התמונה</a>', unsafe_allow_html=True)
+                    # כפתור שיתוף
+                    share_text = f"{imgur_url}"
+                    whatsapp_url = f"https://wa.me/?text={share_text}"
+                    st.markdown(f'<a href="{whatsapp_url}" target="_blank" style="font-size:1.3em; color:#25d366;">📱 שיתוף בוואטסאפ</a>', unsafe_allow_html=True)
+
+    # FOOTER with links (sticky to bottom)
+    st.markdown("""
+    <div class="sticky-footer">
+      <div style='text-align:center; font-size:1.1em; margin-bottom:2px;'>
+        <a href="mailto:sagi.baron76@gmail.com" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="font-size:1.3em;vertical-align:middle;">📧</span> <b>EMAIL ME</b></a>
+        <a href="https://www.youtube.com/@SagiBaron" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#FF0000;font-size:1.3em;vertical-align:middle;">▶️</span> <b>SUBSCRIBE TO MY YOUTUBE CHANNEL</b></a>
+        <a href="https://api.whatsapp.com/send?phone=972549995050" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#25d366;font-size:1.3em;vertical-align:middle;">💬</span> <b>AI DISCUSSION GROUP</b></a>
+        <a href="https://whatsapp.com/channel/0029Vaj33VkEawds11JP9o1c" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#25d366;font-size:1.3em;vertical-align:middle;">💬</span> <b>AI TIPS & TRICKS CHANNEL</b></a>
+        <a href="https://api.whatsapp.com/send?phone=972549995050" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#25d366;font-size:1.3em;vertical-align:middle;">💬</span> <b>CONTACT ME</b></a>
+        <a href="https://www.linkedin.com/in/sagi-bar-on" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#0077b5;font-size:1.3em;vertical-align:middle;">🔗</span> <b>LINKEDIN</b></a>
+        <a href="https://www.facebook.com/sagi.baron" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#1877f2;font-size:1.3em;vertical-align:middle;">📘</span> <b>FACEBOOK</b></a>
+        <a href="https://linktr.ee/sagib?lt_utm_source=lt_share_link#373198503" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#43e97b;font-size:1.3em;vertical-align:middle;">✳️</span> <b>LINKTREE</b></a>
+        <a href="https://buymeacoffee.com/sagibar" target="_blank" rel="noopener noreferrer" style="margin:0 10px;text-decoration:none;"><span style="color:#ffdd00;font-size:1.3em;vertical-align:middle;">🍺</span> <b>BUY ME A BEER</b></a>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main() 

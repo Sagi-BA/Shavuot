@@ -55,11 +55,11 @@ class PollinationsGenerator:
                 f"A beautiful Shavuot basket on a festive table, containing: {items_english}. "
                 "The basket is overflowing, ultra-realistic, vibrant, joyful, high detail, 4k, cinematic lighting."
             )
-            print(formatted_prompt)
+            # print(formatted_prompt)
             # Create the API URL with the prompt and extra params
             image_url = (
                 f"{self.api_url}{formatted_prompt}"
-                f"?model=flux&seed=42&nologo=true&enhance=true"
+                f"?model=flux&seed=99&nologo=true&enhance=true"
             )
             
             # Make the request

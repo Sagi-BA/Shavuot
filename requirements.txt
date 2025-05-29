@@ -1,6 +1,5 @@
 streamlit
 SpeechRecognition
-pyaudio
 python-dotenv
 requests
 together
